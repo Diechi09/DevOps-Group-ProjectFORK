@@ -3,6 +3,13 @@ import logging
 import os
 from typing import Optional
 
+DEFAULT_CONNECTION_STRING = (
+    "InstrumentationKey=e0b63799-fea2-4eaa-b16c-51796f166920;"
+    "IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;"
+    "LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;"
+    "ApplicationId=485c12ed-ecd0-4f39-966b-770f3f364413"
+)
+
 try:
     from opencensus.ext.azure.metrics_exporter import MetricsExporter
     from opencensus.ext.azure.log_exporter import AzureLogHandler
@@ -51,7 +58,9 @@ class TelemetryClient:
 
     def __init__(self, connection_string: Optional[str]):
         self.connection_string = connection_string
-        self.enabled = bool(connection_string and OPENCENSUS_AVAILABLE)
+        self.enabled = bool(
+            connection_string and OPENCENSUS_AVAILABLE and hasattr(stats_module, "stats_recorder")
+        )
 
         if self.enabled:
             self._configure_metrics_exporter(connection_string)  # type: ignore[arg-type]
@@ -165,6 +174,9 @@ def _resolve_connection_string() -> Optional[str]:
 
     if not connection_string and instrumentation_key:
         connection_string = f"InstrumentationKey={instrumentation_key}"
+
+    if not connection_string:
+        connection_string = DEFAULT_CONNECTION_STRING
 
     return connection_string
 

@@ -2,7 +2,6 @@
 FastAPI main application file
 """
 
-import os
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -11,6 +10,7 @@ from app.config import settings
 from app.db import engine, Base
 from app.middleware import LoggingMiddleware
 from app.routes import health, products, supermarkets, prices, compare, scraper
+from app.telemetry import telemetry_client, get_connection_string
 import logging
 
 # Application Insights imports (optional - graceful fallback if not available)
@@ -64,12 +64,12 @@ app.add_middleware(
 )
 
 # Add Application Insights telemetry middleware
-APPINSIGHTS_KEY = os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY")
+APPINSIGHTS_KEY = get_connection_string()
 if APPINSIGHTS_KEY and OPENCENSUS_AVAILABLE:
     try:
         app.add_middleware(
             FastAPIMiddleware,
-            exporter=AzureExporter(connection_string=f"InstrumentationKey={APPINSIGHTS_KEY}"),
+            exporter=AzureExporter(connection_string=APPINSIGHTS_KEY),
             sampler=ProbabilitySampler(1.0),  # Sample 100% of requests
         )
         logger.info("Application Insights telemetry enabled")

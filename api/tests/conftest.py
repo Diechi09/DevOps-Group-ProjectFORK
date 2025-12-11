@@ -21,7 +21,7 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 from app.db import Base, get_db  # noqa: E402
 from app.models import Product, Supermarket, Price  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.routes import health, products, supermarkets, prices, compare  # noqa: E402
+from app.routes import health, products, supermarkets, prices, compare, scraper  # noqa: E402
 from app.middleware import LoggingMiddleware  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware  # noqa: E402
 
@@ -113,6 +113,7 @@ def create_test_app():
     test_app.include_router(
         compare.router, prefix=f"{settings.api_prefix}/compare", tags=["Compare"]
     )
+    test_app.include_router(scraper.router, prefix=f"{settings.api_prefix}/scraper", tags=["Scraper"])
 
     @test_app.get("/")
     async def root():

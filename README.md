@@ -113,6 +113,7 @@ The application is deployed to Azure using GitHub Actions:
 
 - **Staging**: Deploys on push to `teamC2` branch
 - **Production**: Deploys on push to `main` branch
+- **Protection**: Pull requests targeting `main` must pass backend tests and a frontend build before merge (green main policy).
 
 ### Deployed URLs
 
@@ -150,6 +151,11 @@ Push to teamC2/main
 │  App Service    │
 └─────────────────┘
 ```
+
+### Application Insights configuration
+
+- Store the Application Insights connection string in your secret store as `APPINSIGHTS_CONNECTION_STRING` (GitHub Secrets or Azure DevOps variable group). Use the provided value: `InstrumentationKey=e0b63799-fea2-4eaa-b16c-51796f166920;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;ApplicationId=485c12ed-ecd0-4f39-966b-770f3f364413`.
+- The backend workflow automatically sets the `APPLICATIONINSIGHTS_CONNECTION_STRING` app setting on staging and production App Services when this secret is present.
 
 ## Project Structure
 

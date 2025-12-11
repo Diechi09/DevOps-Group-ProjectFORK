@@ -11,6 +11,7 @@ APP_SERVICE_NAME="shopsmart-backend-staging" # Update with your App Service name
 AZURE_SUBSCRIPTION="your-azure-subscription" # Update with your Azure subscription ID
 BICEP_FILE="../azure/webapp.bicep" # Path to the Bicep file
 SERVICE_PLAN_FILE="../azure/service-plan.json" # Path to the service plan file
+APPINSIGHTS_CONNECTION_STRING="${APPLICATIONINSIGHTS_CONNECTION_STRING:-}" # Exported connection string
 
 # Login to Azure
 echo "Logging in to Azure..."
@@ -22,7 +23,7 @@ az account set --subscription $AZURE_SUBSCRIPTION
 
 # Deploy the Bicep template
 echo "Deploying Azure resources using Bicep..."
-az deployment group create --resource-group $RESOURCE_GROUP --template-file $BICEP_FILE --parameters appServiceName=$APP_SERVICE_NAME
+az deployment group create --resource-group $RESOURCE_GROUP --template-file $BICEP_FILE --parameters appServiceName=$APP_SERVICE_NAME appInsightsConnectionString="$APPINSIGHTS_CONNECTION_STRING"
 
 # Deploy the App Service Plan
 echo "Deploying App Service Plan..."
@@ -34,7 +35,11 @@ az monitor app-insights component create --app $APP_SERVICE_NAME --location "Eas
 
 # Set environment variables for the App Service
 echo "Setting environment variables..."
-az webapp config appsettings set --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=your_connection_string" # Update with your connection string
+if [ -n "$APPINSIGHTS_CONNECTION_STRING" ]; then
+  az webapp config appsettings set --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING"
+else
+  echo "APPLICATIONINSIGHTS_CONNECTION_STRING not set; skipping app settings update"
+fi
 
 # Deploy the application
 echo "Deploying the application to Azure App Service..."

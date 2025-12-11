@@ -2,6 +2,8 @@ param appName string
 param appServicePlanName string
 param location string = resourceGroup().location
 param sku string = 'S1'
+@secure()
+param appInsightsConnectionString string = ''
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2021-02-01' = {
   name: appServicePlanName
@@ -29,7 +31,7 @@ resource webApp 'Microsoft.Web/sites@2021-02-01' = {
       appSettings: [
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: 'InstrumentationKey=<Your-Instrumentation-Key>'
+          value: appInsightsConnectionString
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

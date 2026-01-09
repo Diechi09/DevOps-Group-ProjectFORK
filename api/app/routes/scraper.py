@@ -6,8 +6,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from app.config import settings
 from app.db import get_db
 from app.services.scraper_service import ScraperService
+from app.telemetry import telemetry_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,35 @@ async def trigger_scrape(request: Optional[ScrapeRequest] = None, db: Session = 
         )
     finally:
         _scrape_in_progress = False
+
+
+@router.post("/refresh", status_code=status.HTTP_202_ACCEPTED)
+async def refresh_prices(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Background refresh endpoint to resync product data."""
+
+    global _scrape_in_progress
+
+    if _scrape_in_progress:
+        telemetry_client.record_refresh(success=False)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A scrape operation is already in progress",
+        )
+
+    if settings.app_env == "test":
+        telemetry_client.record_refresh(success=True)
+        return {
+            "status": "queued",
+            "message": "Refresh skipped in test environment.",
+        }
+
+    background_tasks.add_task(_run_background_scrape, db, None)
+    telemetry_client.record_refresh(success=True)
+
+    return {
+        "status": "queued",
+        "message": "Refresh started in background. Check /scraper/status for progress.",
+    }
 
 
 async def _run_background_scrape(db: Session, queries: Optional[List[str]]):

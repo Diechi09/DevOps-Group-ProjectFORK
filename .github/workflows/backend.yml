@@ -7,6 +7,14 @@ on:
       - teamC2
     paths:
       - "api/**"
+      - "frontend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "api/**"
+      - "frontend/**"
       - ".github/workflows/backend.yml"
 
 env:
@@ -45,22 +53,41 @@ jobs:
         run: |
           pytest tests -v
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          VITE_API_BASE: "https://example.invalid/api/v1"
+        run: npm run build --if-present
+
       - name: Log in to Azure
         uses: azure/login@v2
+        if: github.event_name == 'push'
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Log in to ACR
+        if: github.event_name == 'push'
         run: |
           echo "${{ secrets.AZURE_ACR_PASSWORD }}" | docker login ${{ env.ACR_REGISTRY }} -u "${{ secrets.AZURE_ACR_USERNAME }}" --password-stdin
 
       - name: Generate image tag
         id: meta
+        if: github.event_name == 'push'
         run: |
           SHORT_SHA="${GITHUB_SHA::8}"
           echo "tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image to ACR
+        if: github.event_name == 'push'
         run: |
           FULL_IMAGE="${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}"
           docker build -t "$FULL_IMAGE" ./api
@@ -78,6 +105,23 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Application Insights (staging)
+        uses: azure/cli@v2
+        env:
+          APP_NAME: ${{ secrets.AZURE_BACKEND_STAGING_APP_NAME }}
+          APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPINSIGHTS_CONNECTION_STRING }}
+        with:
+          inlineScript: |
+            if [ -n "$APPINSIGHTS_CONNECTION_STRING" ]; then
+              RG=$(az webapp show --name "$APP_NAME" --query resourceGroup -o tsv)
+              az webapp config appsettings set \
+                --name "$APP_NAME" \
+                --resource-group "$RG" \
+                --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING"
+            else
+              echo "APPINSIGHTS_CONNECTION_STRING secret not configured; skipping app settings"
+            fi
 
       - name: Deploy to Azure Web App (staging)
         uses: azure/webapps-deploy@v3
@@ -97,6 +141,23 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Application Insights (production)
+        uses: azure/cli@v2
+        env:
+          APP_NAME: ${{ secrets.AZURE_BACKEND_PRODUCTION_APP_NAME }}
+          APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPINSIGHTS_CONNECTION_STRING }}
+        with:
+          inlineScript: |
+            if [ -n "$APPINSIGHTS_CONNECTION_STRING" ]; then
+              RG=$(az webapp show --name "$APP_NAME" --query resourceGroup -o tsv)
+              az webapp config appsettings set \
+                --name "$APP_NAME" \
+                --resource-group "$RG" \
+                --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING"
+            else
+              echo "APPINSIGHTS_CONNECTION_STRING secret not configured; skipping app settings"
+            fi
 
       - name: Deploy to Azure Web App (production)
         uses: azure/webapps-deploy@v3

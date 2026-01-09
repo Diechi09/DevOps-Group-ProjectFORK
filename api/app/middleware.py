@@ -8,6 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import logging
 from typing import Dict, Any
+from app.telemetry import telemetry_client
 
 # Configure structured logging
 logger = logging.getLogger(__name__)
@@ -49,6 +50,13 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             else:
                 logger.info("Request processed", extra=log_payload)
 
+            telemetry_client.record_request(
+                duration_ms=duration_ms,
+                status_code=status_code,
+                endpoint=endpoint,
+                method=method,
+            )
+
             # Add process time to response headers
             response.headers["X-Process-Time"] = str(round(duration_ms, 2))
 
@@ -69,6 +77,13 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "error": error_message,
             }
             logger.error("Unhandled exception in middleware", extra=log_payload, exc_info=True)
+
+            telemetry_client.record_request(
+                duration_ms=duration_ms,
+                status_code=status_code,
+                endpoint=endpoint,
+                method=method,
+            )
 
             # Re-raise to let exception handlers deal with it
             raise
